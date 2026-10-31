@@ -15,11 +15,12 @@ set(BALANCIO_PARAMS_FILE
   CACHE FILEPATH "Physical parameters baked into the generated model")
 
 # The controller library: no ROS, so the ESP32 firmware can use it too.
-add_library(balancio_nmpc src/model.cpp src/codegen.cpp)
+add_library(balancio_nmpc src/model.cpp src/codegen.cpp src/nmpc.cpp)
 target_include_directories(balancio_nmpc PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_link_libraries(balancio_nmpc PUBLIC casadi::casadi PRIVATE yaml-cpp::yaml-cpp)
+target_link_libraries(balancio_nmpc
+  PUBLIC casadi::casadi PRIVATE yaml-cpp::yaml-cpp acados balancio_model)
 
 # The model functions as plain C, regenerated when the model or the
 # parameters change. This is what acados (and later the ESP32) runs.
@@ -76,6 +77,18 @@ if(BUILD_TESTING)
   target_compile_definitions(test_model PRIVATE
     BALANCIO_PARAMS_FILE="${PARAMS_FILE}" MODEL_REFERENCE="${MODEL_REFERENCE}")
   set_tests_properties(test_model PROPERTIES FIXTURES_REQUIRED model_reference)
+
+  # The acados NMPC against the Python NMPC, and in closed loop.
+  set(NMPC_REFERENCE ${CMAKE_CURRENT_BINARY_DIR}/nmpc_reference.csv)
+  add_test(NAME nmpc_reference
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/make_nmpc_reference.py
+            ${PARAMS_FILE} ${NMPC_REFERENCE})
+  set_tests_properties(nmpc_reference PROPERTIES FIXTURES_SETUP nmpc_reference)
+  balancio_add_gtest(test_nmpc test/test_nmpc.cpp)
+  target_link_libraries(test_nmpc balancio_nmpc)
+  target_compile_definitions(test_nmpc PRIVATE
+    BALANCIO_PARAMS_FILE="${PARAMS_FILE}" NMPC_REFERENCE="${NMPC_REFERENCE}")
+  set_tests_properties(test_nmpc PROPERTIES FIXTURES_REQUIRED nmpc_reference)
 
   # The generated C against CasADi, and the Jacobian layout acados expects.
   balancio_add_gtest(test_codegen test/test_codegen.cpp)
