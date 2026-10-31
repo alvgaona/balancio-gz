@@ -19,7 +19,9 @@ std::vector<casadi::Function> make_codegen_functions(const Params &p) {
   return {
       casadi::Function("balancio_dyn_disc_phi_fun", {z, u, prm}, {phi}, opts),
       casadi::Function("balancio_dyn_disc_phi_fun_jac", {z, u, prm}, {phi, jac_ux.T()}, opts),
-      casadi::Function("balancio_ekf_step", {xe, ue, h}, {xn, SX::jacobian(xn, xe)}, opts),
+      // Dense Jacobian, so the EKF reads a plain 6x6 (column-major) array.
+      casadi::Function("balancio_ekf_step", {xe, ue, h}, {xn, SX::densify(SX::jacobian(xn, xe))},
+                       opts),
   };
 }
 
