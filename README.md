@@ -12,11 +12,11 @@ You'll need a package manager called Pixi.
 It installs ROS 2 and Gazebo for you, on Linux or macOS.
 Follow this [link][pixi-installation] to install it.
 
-Then, from the repo folder, install everything and build:
+Then, from the repo folder, install everything.
+This also builds the ROS packages.
 
 ```text
 pixi install
-pixi run build
 ```
 
 ## Run
@@ -54,7 +54,7 @@ To update it, export the whole assembly as USDZ, then run:
 
 ```text
 pixi run cad-convert path/to/assembly.usdz
-pixi run build
+pixi install
 ```
 
 This needs [Blender] installed.
