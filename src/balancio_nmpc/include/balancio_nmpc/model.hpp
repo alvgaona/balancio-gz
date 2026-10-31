@@ -55,6 +55,9 @@ casadi::SX continuous_dynamics(const casadi::SX &state, const casadi::SX &u, con
 // f(x, u) -> dx/dt
 casadi::Function make_dynamics_function(const Params &p);
 
+// One RK4 step of length h (a symbol or a number), zero-order-hold input.
+casadi::SX rk4_step(const casadi::SX &x, const casadi::SX &u, const casadi::SX &h, const Params &p);
+
 // Discrete-time model x_{k+1} = F(x_k, u_k), RK4 with zero-order-hold input.
 casadi::Function make_rk4_function(const Params &p, double dt, int substeps = 1);
 

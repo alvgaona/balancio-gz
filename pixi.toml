@@ -18,6 +18,10 @@ ros-jazzy-ros2run = "*"
 ros-jazzy-rviz2 = "*"
 ros-jazzy-teleop-twist-keyboard = "*"
 pytest = ">=8,<9"
+# Same compilers (and libc++) as the pixi package builds. The system clang
+# links the system libc++, which crashes when mixed with conda's CasADi.
+c-compiler = "*"
+cxx-compiler = "*"
 
 [tasks]
 test = "pytest src/balancio_control/test src/balancio_description/test -q"

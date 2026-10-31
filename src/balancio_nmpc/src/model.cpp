@@ -95,19 +95,19 @@ casadi::Function make_dynamics_function(const Params &p) {
   return casadi::Function("f", {x, u}, {continuous_dynamics(x, u, p)}, {"x", "u"}, {"dx"});
 }
 
+SX rk4_step(const SX &x, const SX &u, const SX &h, const Params &p) {
+  const SX k1 = continuous_dynamics(x, u, p);
+  const SX k2 = continuous_dynamics(x + h / 2 * k1, u, p);
+  const SX k3 = continuous_dynamics(x + h / 2 * k2, u, p);
+  const SX k4 = continuous_dynamics(x + h * k3, u, p);
+  return x + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+}
+
 casadi::Function make_rk4_function(const Params &p, double dt, int substeps) {
-  const casadi::Function f = make_dynamics_function(p);
   const SX x = SX::sym("x", NX);
   const SX u = SX::sym("u", NU);
-  const double h = dt / substeps;
   SX xn = x;
-  for (int i = 0; i < substeps; ++i) {
-    const SX k1 = f(std::vector<SX>{xn, u})[0];
-    const SX k2 = f(std::vector<SX>{xn + h / 2 * k1, u})[0];
-    const SX k3 = f(std::vector<SX>{xn + h / 2 * k2, u})[0];
-    const SX k4 = f(std::vector<SX>{xn + h * k3, u})[0];
-    xn = xn + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
-  }
+  for (int i = 0; i < substeps; ++i) xn = rk4_step(xn, u, dt / substeps, p);
   return casadi::Function("F", {x, u}, {xn}, {"x", "u"}, {"x_next"});
 }
 

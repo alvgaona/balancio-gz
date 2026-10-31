@@ -10,6 +10,8 @@ distro = "jazzy"
 casadi = ">=3.7"
 acados = { git = "https://github.com/alvgaona/acados-recipe", branch = "main" }
 
+gtest = "*"
+
 [package.run-dependencies]
 casadi = ">=3.7"
 acados = { git = "https://github.com/alvgaona/acados-recipe", branch = "main" }

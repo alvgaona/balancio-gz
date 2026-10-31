@@ -11,7 +11,7 @@
 
   <depend>yaml-cpp</depend>
 
-  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>gtest</test_depend>
   <test_depend>balancio_control</test_depend>
 
   <export>
