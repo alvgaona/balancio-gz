@@ -1,0 +1,76 @@
+# Rex sessions for balancio-gz. See https://github.com/alvgaona/rexinator
+#
+#   rexinator start                          balance in place
+#   rexinator start @auto                    follow a figure 8, with RViz
+#   rexinator start @auto trajectory=circle  follow another path
+#   rexinator start @drive                   drive it with the keyboard
+#   rexinator start @dev                     editor and tests, no sim
+#   rexinator stop                           close the session and any leftover Gazebo
+#
+# Panes run the launch files in balancio_bringup: sim (Gazebo and the robot),
+# control (MPC and path follower) and viz (RViz), plus Rerun.
+
+vars:
+  trajectory: none    # none, line, circle, sine or figure8
+  headless: false     # true skips the Gazebo window
+  rviz: false         # true opens RViz
+  teleop: false       # true adds a keyboard teleop window
+  initial_pitch: 0.1  # starting lean [rad]
+
+# Every pane works in the pixi environment.
+pre_window: eval "$(pixi shell-hook)"
+
+# Gazebo can leave its server running after the session closes.
+on_stop: pkill -f "gz sim" || true
+
+default: sim
+layouts:
+  sim:
+    windows: &windows
+      - sim:
+          split: right
+          ratio: 55
+          before:
+            label: sim
+            type: >-
+              ros2 launch balancio_bringup sim.launch.py
+              headless:=${headless} initial_pitch:=${initial_pitch}
+          after:
+            label: control
+            type: ros2 launch balancio_bringup control.launch.py trajectory:=${trajectory}
+
+      - viz:
+          split: right
+          before:
+            label: rviz
+            when: ${rviz}
+            type: ros2 launch balancio_bringup viz.launch.py
+          after:
+            label: rerun
+            type: pixi run viz
+
+      - teleop:
+          when: ${teleop}
+          label: teleop
+          type: ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+  auto:
+    vars:
+      trajectory: figure8
+      rviz: true
+    windows: *windows
+
+  drive:
+    vars:
+      teleop: true
+    startup_window: teleop
+    windows: *windows
+
+  dev:
+    windows:
+      - code: nvim .
+      - test:
+          split: below
+          ratio: 70
+          before: git status
+          after: pixi run test

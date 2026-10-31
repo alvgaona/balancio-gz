@@ -5,3 +5,6 @@ __pycache__/
 .ruff_cache/
 *.blend
 *.blend1
+
+# Personal rexinator overrides
+.rexinator.local.yml
