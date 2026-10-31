@@ -21,10 +21,13 @@ gui = "gz sim -g"
 
 [feature.style.dependencies]
 ruff = "*"
+lefthook = "*"
+commitlint = "*"
 
 [feature.style.tasks]
 lint = "ruff check src tools && ruff format --check src tools"
 format = "ruff check --fix src tools && ruff format src tools"
+hooks = "lefthook install"
 
 [environments]
 default = ["style"]

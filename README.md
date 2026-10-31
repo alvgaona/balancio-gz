@@ -65,8 +65,18 @@ This needs [Blender] installed.
 pixi run test
 ```
 
+## Contributing
+
+Commits follow [Conventional Commits].
+Install the git hooks once; they check the commit message and the code style.
+
+```text
+pixi run -e style hooks
+```
+
 [Balancio]: https://github.com/udesa-ai/balancio-kit/tree/main
 [twsbr]: https://github.com/alvgaona/twsbr
 [balancio-sim]: https://github.com/alvgaona/balancio-sim
 [Blender]: https://www.blender.org/download/
+[Conventional Commits]: https://www.conventionalcommits.org
 [pixi-installation]: https://pixi.sh/latest/#installation

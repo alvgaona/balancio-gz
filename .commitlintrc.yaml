@@ -1,0 +1,4 @@
+# Conventional commits. The rules ship with conda-forge's commitlint, inside
+# the pixi "style" environment (pixi install -e style).
+extends:
+  - "./.pixi/envs/style/lib/node_modules/@commitlint/cli/node_modules/@commitlint/config-conventional/lib/index.js"
