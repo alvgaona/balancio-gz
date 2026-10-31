@@ -1,7 +1,7 @@
 # Rex sessions for balancio-gz. See https://github.com/alvgaona/rexinator
 #
-#   rexinator start                          balance in place
-#   rexinator start @auto                    follow a figure 8, with RViz
+#   rexinator start                          balance in place, with RViz
+#   rexinator start @auto                    follow a figure 8
 #   rexinator start @auto trajectory=circle  follow another path
 #   rexinator start @drive                   drive it with the keyboard
 #   rexinator start @dev                     editor and tests, no sim
@@ -13,9 +13,9 @@
 vars:
   trajectory: none    # none, line, circle, sine or figure8
   headless: false     # true skips the Gazebo window
-  rviz: false         # true opens RViz
+  rviz: true          # false skips RViz
   teleop: false       # true adds a keyboard teleop window
-  initial_pitch: 0.1  # starting lean [rad]
+  initial_pitch: 0.3  # starting lean [rad], about 17°; the MPC is designed for up to 0.6
 
 # Every pane works in the pixi environment.
 pre_window: eval "$(pixi shell-hook)"
@@ -57,7 +57,6 @@ layouts:
   auto:
     vars:
       trajectory: figure8
-      rviz: true
     windows: *windows
 
   drive:
