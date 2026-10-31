@@ -1,0 +1,24 @@
+balancio_mpc:
+  ros__parameters:
+    use_sim_time: true
+    solver: fatrop          # fatrop (fast, ~2 ms) or ipopt
+    dt: 0.02                # control period [s]
+    horizon: 25             # prediction horizon (0.5 s)
+    # State weights [x, theta, psi, dx, dtheta, dpsi]
+    q: [40.0, 100.0, 10.0, 4.0, 0.5, 0.5]
+    r: [16.0, 16.0]         # torque weights
+    r_rate: [1.0, 1.0]      # torque-rate weights
+    max_torque: -1.0        # <= 0 -> use max_torque from balancio.yaml
+    max_torque_rate: 25.0   # [N m/s]
+    max_theta: 0.6          # pitch constraint [rad]
+    fall_angle: 1.0         # torques off above this pitch [rad]
+    max_speed: 0.6
+    max_yaw_rate: 3.0
+
+balancio_path_follower:
+  ros__parameters:
+    use_sim_time: true
+    trajectory: figure8     # line | circle | sine | figure8
+    speed: 0.25             # nominal path speed [m/s]
+    size: 1.0               # radius / amplitude [m]
+    start_delay: 3.0        # balance in place first [s]

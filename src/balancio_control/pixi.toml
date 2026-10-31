@@ -1,0 +1,10 @@
+[package.build.backend]
+name = "pixi-build-ros"
+version = "*"
+
+[package.build.config]
+distro = "jazzy"
+
+# Not a rosdep key, so it can't go in package.xml.
+[package.run-dependencies]
+casadi = ">=3.6"

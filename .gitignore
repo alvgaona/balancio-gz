@@ -1,0 +1,7 @@
+.pixi/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.blend
+*.blend1

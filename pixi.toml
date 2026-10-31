@@ -1,0 +1,31 @@
+[workspace]
+name = "balancio-gz"
+version = "0.1.0"
+description = "Balancio self-balancing robot in Gazebo Harmonic + ROS 2 Jazzy, controlled by NMPC"
+authors = ["Alvaro <alvgaona@gmail.com>"]
+channels = ["robostack-jazzy", "conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+preview = ["pixi-build"]
+
+[dependencies]
+ros-jazzy-balancio-description = { path = "src/balancio_description" }
+ros-jazzy-balancio-control = { path = "src/balancio_control" }
+ros-jazzy-rviz2 = "*"
+ros-jazzy-teleop-twist-keyboard = "*"
+pytest = ">=8,<9"
+
+[tasks]
+test = "pytest src/balancio_control/test -q"
+sim = "ros2 launch balancio_control balancio_mpc.launch.py"
+gui = "gz sim -g"
+
+[feature.style.dependencies]
+ruff = "*"
+
+[feature.style.tasks]
+lint = "ruff check src tools && ruff format --check src tools"
+format = "ruff check --fix src tools && ruff format src tools"
+
+[environments]
+default = ["style"]
+style = { features = ["style"], no-default-feature = true }

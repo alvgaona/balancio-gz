@@ -1,0 +1,56 @@
+# Balancio physical parameters (SI units).
+#
+# Single source of truth: the URDF (xacro) and the NMPC prediction model both
+# load this file, so the simulated plant and the controller model match.
+#
+# Geometry (d, r, wheel width, collision boxes) measured from the Fusion 360
+# model (see tools/blender_cad_to_meshes.py).
+# Body mass properties (mb, l, I1-I3) computed from the CAD part geometry with
+# these masses (estimates, weigh the real robot to refine):
+#   plate 26.6 g + battery tray 8.3 g (PLA, ~1.0 g/cm^3 printed)
+#   2x 18650 + holder 54 g each, 2x TT motor 29 g each, ESP32 dev kit 10 g,
+#   L298N + heatsink 26 g, 2S BMS 3 g
+# The CoM is 0.8 mm behind the axle line (1.7 deg), ignored: below the
+# uncertainty of the masses, and the twsbr model assumes it on the axle line.
+#
+# Naming follows alvgaona/twsbr (matlab/twsbr_dynamics.m):
+#   d      distance between wheels                       [m]
+#   l      wheel axle -> body center of mass              [m]
+#   r      wheel radius                                   [m]
+#   mb     body mass (everything except the wheels)       [kg]
+#   mw     mass of each wheel                             [kg]
+#   J      wheel inertia about its spin axis              [kg m^2]
+#   K      wheel inertia about the vertical axis          [kg m^2]
+#   I1     body inertia about x (roll) at CoM             [kg m^2]
+#   I2     body inertia about y (pitch) at CoM            [kg m^2]
+#   I3     body inertia about z (yaw) at CoM              [kg m^2]
+#   calpha viscous friction on the wheel axle             [N m s/rad]
+#   g      gravity                                        [m/s^2]
+
+d: 0.1045
+l: 0.0292
+r: 0.033
+mb: 0.240
+mw: 0.033      # 65 mm TT wheel (ABS hub + rubber tyre), typical listing weight
+J: 2.384e-5    # from the CAD mesh, uniform density, mw = 33 g
+K: 1.298e-5    # from the CAD mesh
+I1: 6.15e-4
+I2: 5.81e-4
+I3: 1.98e-4
+calpha: 1.0e-3
+g: 9.81
+
+wheel_width: 0.020
+
+# Body collision boxes in the base_link (axle) frame, from the CAD [m].
+collision_plate:      # main vertical plate, PCB and motors
+  center: [-0.0047, 0.0, 0.0664]
+  size: [0.015, 0.076, 0.1594]
+collision_battery:    # 2x 18650 + tray, below/around the axle
+  center: [0.0012, 0.0, -0.0046]
+  size: [0.0745, 0.076, 0.0232]
+
+# Motors: TT gear motor 1:48 at ~6 V (2S Li-ion through the L298N).
+# Datasheet: stall 0.8 kg cm, no-load ~200 rpm at 6 V.
+max_torque: 0.078            # stall torque per wheel [N m]
+motor_no_load_speed: 20.9    # [rad/s]; torque falls linearly to 0 here

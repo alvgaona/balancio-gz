@@ -1,0 +1,135 @@
+<?xml version="1.0"?>
+<!--
+  Balancio two-wheeled self-balancing robot.
+
+  Frame conventions (match the twsbr dynamic model):
+    base_link origin on the wheel axle, x forward, y left, z up.
+    Positive pitch (about +y) leans the body forward.
+    Positive wheel torque (about +y) drives the robot forward; Gazebo applies
+    the reaction (-tau) on the body, as in the model's input matrix B.
+-->
+<robot name="balancio" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="params_file" default="$(find balancio_description)/config/balancio.yaml"/>
+  <xacro:arg name="imu_noise" default="true"/>
+  <xacro:property name="p" value="${xacro.load_yaml('$(arg params_file)')}"/>
+
+  <xacro:property name="mesh_dir" value="package://balancio_description/meshes"/>
+
+  <!-- Body (pendulum). Origin on the wheel axle. -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${p['l']}" rpy="0 0 0"/>
+      <mass value="${p['mb']}"/>
+      <inertia ixx="${p['I1']}" ixy="0" ixz="0" iyy="${p['I2']}" iyz="0" izz="${p['I3']}"/>
+    </inertial>
+    <!-- From Fusion 360 via tools/blender_cad_to_meshes.py -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="${mesh_dir}/body.obj"/>
+      </geometry>
+    </visual>
+    <!-- Collisions: boxes fitted to the CAD (main plate, low battery block) -->
+    <xacro:macro name="collision_box" params="name">
+      <xacro:property name="b" value="${p[name]}"/>
+      <collision name="${name}">
+        <origin xyz="${b['center'][0]} ${b['center'][1]} ${b['center'][2]}" rpy="0 0 0"/>
+        <geometry>
+          <box size="${b['size'][0]} ${b['size'][1]} ${b['size'][2]}"/>
+        </geometry>
+      </collision>
+    </xacro:macro>
+    <xacro:collision_box name="collision_plate"/>
+    <xacro:collision_box name="collision_battery"/>
+  </link>
+
+  <xacro:macro name="wheel" params="side y_sign">
+    <joint name="${side}_wheel_joint" type="continuous">
+      <origin xyz="0 ${y_sign * p['d'] / 2.0} 0" rpy="0 0 0"/>
+      <parent link="base_link"/>
+      <child link="${side}_wheel"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="${p['calpha']}" friction="0.0"/>
+    </joint>
+
+    <link name="${side}_wheel">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="${p['mw']}"/>
+        <!-- spin axis is y: Iyy = J, the other two = K -->
+        <inertia ixx="${p['K']}" ixy="0" ixz="0" iyy="${p['J']}" iyz="0" izz="${p['K']}"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="${mesh_dir}/wheel_${side}.obj"/>
+        </geometry>
+      </visual>
+      <!-- A sphere gives a single, clean rolling contact point. -->
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="${p['r']}"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <gazebo reference="${side}_wheel">
+      <mu1>1.5</mu1>
+      <mu2>1.5</mu2>
+    </gazebo>
+
+    <gazebo>
+      <plugin filename="gz-sim-apply-joint-force-system" name="gz::sim::systems::ApplyJointForce">
+        <joint_name>${side}_wheel_joint</joint_name>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:wheel side="left" y_sign="1"/>
+  <xacro:wheel side="right" y_sign="-1"/>
+
+  <!-- IMU on the body, on the axle line -->
+  <gazebo reference="base_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>true</always_on>
+      <update_rate>200</update_rate>
+      <topic>/balancio/imu</topic>
+      <imu>
+        <!-- Absolute orientation (default is relative to the spawn pose) -->
+        <orientation_reference_frame>
+          <localization>ENU</localization>
+        </orientation_reference_frame>
+        <xacro:if value="$(arg imu_noise)">
+          <angular_velocity>
+            <x><noise type="gaussian"><mean>0</mean><stddev>0.005</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>0.005</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>0.005</stddev></noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></z>
+          </linear_acceleration>
+        </xacro:if>
+      </imu>
+    </sensor>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>/balancio/joint_states</topic>
+      <joint_name>left_wheel_joint</joint_name>
+      <joint_name>right_wheel_joint</joint_name>
+    </plugin>
+    <!-- Ground truth pose/twist, for comparison and plotting only -->
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>odom</odom_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <odom_topic>/balancio/ground_truth</odom_topic>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <dimensions>3</dimensions>
+    </plugin>
+  </gazebo>
+</robot>
