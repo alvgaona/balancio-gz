@@ -11,6 +11,10 @@ balancio_mpc:
     max_duty: 1.0           # PWM duty limit
     max_duty_rate: 300.0    # [1/s]
     max_theta: 0.6          # pitch constraint [rad]
+    # IMU-only Kalman filter, noise std. Process, per step:
+    # [x, theta, psi, dx, dtheta, dpsi]; IMU: [theta, psi, dtheta, dpsi]
+    ekf_q: [1.0e-4, 1.0e-3, 1.0e-3, 1.0e-3, 5.0e-2, 2.0e-2]
+    ekf_r: [3.0e-3, 1.0e-2, 5.0e-3, 5.0e-3]
     fall_angle: 1.0         # motors off above this pitch [rad]
     max_speed: 0.6
     max_yaw_rate: 3.0

@@ -1,13 +1,12 @@
 """ROS 2 node: NMPC balancing + velocity/heading tracking for Balancio.
 
 Subscribes
-  /balancio/imu            sensor_msgs/Imu
-  /balancio/joint_states   sensor_msgs/JointState
+  /balancio/imu            sensor_msgs/Imu   (the only sensor: no wheel encoders)
   /cmd_vel                 geometry_msgs/Twist   (linear.x [m/s], angular.z [rad/s])
 
 Publishes
   /balancio/left_wheel/duty, /balancio/right_wheel/duty   std_msgs/Float64 [-1, 1]
-  /balancio/odom             nav_msgs/Odometry (wheel/IMU dead reckoning)
+  /balancio/odom             nav_msgs/Odometry (estimator dead reckoning)
   /balancio/mpc/predicted_path nav_msgs/Path
   /balancio/mpc/state        std_msgs/Float64MultiArray  [x, th, psi, dx, dth, dpsi]
   /balancio/mpc/reference    std_msgs/Float64MultiArray  (same layout)
@@ -32,11 +31,11 @@ from nav_msgs.msg import Odometry, Path
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import Imu, JointState
+from sensor_msgs.msg import Imu
 from std_msgs.msg import Float64, Float64MultiArray
 from tf2_ros import TransformBroadcaster
 
-from balancio_control.estimator import TwsbrEstimator
+from balancio_control.estimator import ImuEkf
 from balancio_control.model import TwsbrParams
 from balancio_control.nmpc import Nmpc, NmpcConfig
 
@@ -78,8 +77,8 @@ class BalancioMpcNode(Node):
         self.declare_parameter("max_yaw_rate", 3.0)
         self.declare_parameter("max_position_lead", 0.2)
         self.declare_parameter("max_heading_lead", 0.6)
-        self.declare_parameter("left_wheel_joint", "left_wheel_joint")
-        self.declare_parameter("right_wheel_joint", "right_wheel_joint")
+        self.declare_parameter("ekf_q", [1e-4, 1e-3, 1e-3, 1e-3, 5e-2, 2e-2])
+        self.declare_parameter("ekf_r", [3e-3, 1e-2, 5e-3, 5e-3])
         self.declare_parameter("odom_frame", "odom")
         self.declare_parameter("base_frame", "base_link")
         self.declare_parameter("publish_tf", True)
@@ -108,9 +107,12 @@ class BalancioMpcNode(Node):
             f"built in {time.perf_counter() - t0:.2f}s"
         )
 
-        self.est = TwsbrEstimator(self.params.r)
-        self.left_joint = gp("left_wheel_joint").value
-        self.right_joint = gp("right_wheel_joint").value
+        self.est = ImuEkf(
+            self.params,
+            self.cfg.dt,
+            q=list(gp("ekf_q").value),
+            r=list(gp("ekf_r").value),
+        )
         self.fall_angle = float(gp("fall_angle").value)
         self.cmd_timeout = float(gp("cmd_timeout").value)
         self.max_speed = float(gp("max_speed").value)
@@ -131,12 +133,6 @@ class BalancioMpcNode(Node):
 
         self.create_subscription(
             Imu, "/balancio/imu", self.on_imu, qos_profile_sensor_data
-        )
-        self.create_subscription(
-            JointState,
-            "/balancio/joint_states",
-            self.on_joints,
-            qos_profile_sensor_data,
         )
         self.create_subscription(Twist, "/cmd_vel", self.on_cmd_vel, 10)
 
@@ -163,20 +159,8 @@ class BalancioMpcNode(Node):
     # ---------------------------------------------------------------- inputs
     def on_imu(self, msg: Imu) -> None:
         o, w = msg.orientation, msg.angular_velocity
-        self.est.update_imu((o.x, o.y, o.z, o.w), (w.x, w.y, w.z))
-
-    def on_joints(self, msg: JointState) -> None:
-        try:
-            il = msg.name.index(self.left_joint)
-            ir = msg.name.index(self.right_joint)
-        except ValueError:
-            return
-        vel = (
-            msg.velocity
-            if len(msg.velocity) == len(msg.name)
-            else [0.0] * len(msg.name)
-        )
-        self.est.update_wheels(msg.position[il], msg.position[ir], vel[il], vel[ir])
+        stamp = msg.header.stamp.sec + 1e-9 * msg.header.stamp.nanosec
+        self.est.update_imu((o.x, o.y, o.z, o.w), (w.x, w.y, w.z), stamp)
 
     def on_cmd_vel(self, msg: Twist) -> None:
         self.v_cmd = float(np.clip(msg.linear.x, -self.max_speed, self.max_speed))
@@ -189,12 +173,13 @@ class BalancioMpcNode(Node):
     def publish_duty(self, u: np.ndarray) -> None:
         self.pub_left.publish(Float64(data=float(u[0])))
         self.pub_right.publish(Float64(data=float(u[1])))
+        self.est.set_input(self.get_clock().now().nanoseconds * 1e-9, u)
 
     def step(self) -> None:
         if not self.est.ready:
             return
-        x = self.est.state()
         now = self.get_clock().now()
+        x = self.est.step(now.nanoseconds * 1e-9)
         dt = self.cfg.dt
 
         if (
@@ -214,6 +199,7 @@ class BalancioMpcNode(Node):
             self.fallen = True
             self.u_prev[:] = 0.0
             self.mpc.reset()
+            self.est.reset()
             self.x_ref, self.psi_ref = float(x[0]), float(x[2])
             self.publish_duty(self.u_prev)
             return
