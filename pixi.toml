@@ -10,13 +10,16 @@ preview = ["pixi-build"]
 [dependencies]
 ros-jazzy-balancio-description = { path = "src/balancio_description" }
 ros-jazzy-balancio-control = { path = "src/balancio_control" }
+ros-jazzy-balancio-bringup = { path = "src/balancio_bringup" }
+ros-jazzy-ros2launch = "*"
+ros-jazzy-ros2run = "*"
 ros-jazzy-rviz2 = "*"
 ros-jazzy-teleop-twist-keyboard = "*"
 pytest = ">=8,<9"
 
 [tasks]
 test = "pytest src/balancio_control/test -q"
-sim = "ros2 launch balancio_control balancio_mpc.launch.py"
+sim = "ros2 launch balancio_bringup balancio.launch.py"
 gui = "gz sim -g"
 
 [feature.style.dependencies]

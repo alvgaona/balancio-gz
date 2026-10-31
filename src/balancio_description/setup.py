@@ -13,12 +13,10 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         ("share/" + package_name + "/urdf", glob("urdf/*")),
         ("share/" + package_name + "/config", glob("config/*")),
-        ("share/" + package_name + "/worlds", glob("worlds/*")),
         (
             "share/" + package_name + "/meshes",
             glob("meshes/*.obj") + glob("meshes/*.mtl"),
         ),
-        ("share/" + package_name + "/launch", glob("launch/*.py")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -27,6 +25,6 @@ setup(
     },
     maintainer="Alvaro J. Gaona",
     maintainer_email="alvgaona@gmail.com",
-    description="Balancio robot description, Gazebo Harmonic world and bringup",
+    description="Balancio robot description: URDF, meshes, parameters and motor model",
     license="MIT",
 )

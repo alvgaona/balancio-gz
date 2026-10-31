@@ -21,9 +21,10 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description() -> LaunchDescription:
     pkg = get_package_share_directory("balancio_description")
-    world = os.path.join(pkg, "worlds", "balancio_world.sdf")
+    bringup = get_package_share_directory("balancio_bringup")
+    world = os.path.join(bringup, "worlds", "balancio_world.sdf")
     xacro_file = os.path.join(pkg, "urdf", "balancio.urdf.xacro")
-    bridge_config = os.path.join(pkg, "config", "bridge.yaml")
+    bridge_config = os.path.join(bringup, "config", "bridge.yaml")
 
     headless = LaunchConfiguration("headless")
     params_file = LaunchConfiguration("params_file")

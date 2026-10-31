@@ -24,15 +24,19 @@ pixi install
 Start Gazebo with Balancio balancing in place:
 
 ```text
-pixi run ros2 launch balancio_control balancio_mpc.launch.py
+pixi run ros2 launch balancio_bringup balancio.launch.py
 ```
 
 To follow a path, add `trajectory:=` with `line`, `circle`, `sine` or `figure8`.
 Add `rviz:=true` to see the path in RViz.
 
 ```text
-pixi run ros2 launch balancio_control balancio_mpc.launch.py trajectory:=figure8 rviz:=true
+pixi run ros2 launch balancio_bringup balancio.launch.py trajectory:=figure8 rviz:=true
 ```
+
+Each part also has its own launch file in `balancio_bringup`, to run in separate shells:
+`sim.launch.py` (Gazebo and the robot), `control.launch.py` (the controller and path follower)
+and `viz.launch.py` (RViz).
 
 ## Drive it yourself
 

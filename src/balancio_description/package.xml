@@ -3,16 +3,11 @@
 <package format="3">
   <name>balancio_description</name>
   <version>0.1.0</version>
-  <description>Balancio robot description, Gazebo Harmonic world and bringup</description>
+  <description>Balancio robot description: URDF, meshes, parameters and motor model</description>
   <maintainer email="alvgaona@gmail.com">Alvaro</maintainer>
   <license>MIT</license>
 
   <exec_depend>xacro</exec_depend>
-  <exec_depend>robot_state_publisher</exec_depend>
-  <exec_depend>ros_gz_sim</exec_depend>
-  <exec_depend>ros_gz_bridge</exec_depend>
-  <exec_depend>launch</exec_depend>
-  <exec_depend>launch_ros</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
