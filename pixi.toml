@@ -11,6 +11,7 @@ preview = ["pixi-build"]
 ros-jazzy-balancio-description = { path = "src/balancio_description" }
 ros-jazzy-balancio-control = { path = "src/balancio_control" }
 ros-jazzy-balancio-bringup = { path = "src/balancio_bringup" }
+ros-jazzy-balancio-nmpc = { path = "src/balancio_nmpc" }
 acados = { git = "https://github.com/alvgaona/acados-recipe", branch = "main" }
 ros-jazzy-ros2launch = "*"
 ros-jazzy-ros2run = "*"
@@ -20,6 +21,7 @@ pytest = ">=8,<9"
 
 [tasks]
 test = "pytest src/balancio_control/test src/balancio_description/test -q"
+test-cpp = { cmd = "cmake -S src/balancio_nmpc -B build/balancio_nmpc -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$CONDA_PREFIX -Wno-dev && cmake --build build/balancio_nmpc -j && ctest --test-dir build/balancio_nmpc --output-on-failure" }
 sim = "ros2 launch balancio_bringup balancio.launch.py"
 gui = "gz sim -g"
 

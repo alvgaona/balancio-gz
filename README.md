@@ -89,7 +89,10 @@ This needs [Blender] installed.
 
 ```text
 pixi run test
+pixi run test-cpp
 ```
+
+`test` runs the Python tests, `test-cpp` builds and tests the C++ controller (`balancio_nmpc`).
 
 ## Contributing
 

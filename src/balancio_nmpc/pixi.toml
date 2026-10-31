@@ -1,0 +1,15 @@
+[package.build.backend]
+name = "pixi-build-ros"
+version = "*"
+
+[package.build.config]
+distro = "jazzy"
+
+# Not rosdep keys, so they can't go in package.xml.
+[package.host-dependencies]
+casadi = ">=3.7"
+acados = { git = "https://github.com/alvgaona/acados-recipe", branch = "main" }
+
+[package.run-dependencies]
+casadi = ">=3.7"
+acados = { git = "https://github.com/alvgaona/acados-recipe", branch = "main" }
