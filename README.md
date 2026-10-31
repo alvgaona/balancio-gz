@@ -53,6 +53,28 @@ Both the simulation and the controller read this file.
 
 The controller settings are in `src/balancio_control/config/mpc.yaml`.
 
+### Motors
+
+The wheels are driven by TT gear motors through an L298N, as on the real robot.
+The controller sends each motor a PWM duty between -1 and 1, not a torque.
+The torque the motor gives drops as the wheel spins faster (back-EMF).
+
+A Gazebo plugin simulates the motors at every physics step.
+It also simulates the inertia of the spinning motor, and the free play in the gearbox (backlash).
+Backlash is off by default.
+To turn it on, set `backlash` in `balancio.yaml` to half of the total free play, in radians.
+TT gearboxes usually have 2 to 4 degrees in total.
+With backlash, the robot wobbles a little when standing still, like a real one.
+
+### Sensors
+
+The controller only uses the IMU, since the real robot has no wheel encoders.
+It works out the robot's speed from the IMU and the duty it sent to the motors.
+The position is the speed added up over time, so it drifts.
+
+This depends on the motor numbers in `balancio.yaml` being right.
+Measure them on the real robot before trusting it there.
+
 The 3D model comes from Fusion 360.
 To update it, export the whole assembly as USDZ, then run:
 
