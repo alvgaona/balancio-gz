@@ -11,6 +11,7 @@ preview = ["pixi-build"]
 ros-jazzy-balancio-description = { path = "src/balancio_description" }
 ros-jazzy-balancio-control = { path = "src/balancio_control" }
 ros-jazzy-balancio-bringup = { path = "src/balancio_bringup" }
+acados = { git = "https://github.com/alvgaona/acados-recipe", branch = "main" }
 ros-jazzy-ros2launch = "*"
 ros-jazzy-ros2run = "*"
 ros-jazzy-rviz2 = "*"
