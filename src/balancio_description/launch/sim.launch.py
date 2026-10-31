@@ -64,8 +64,8 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument(
                 "spawn_z",
-                default_value="0.035",
-                description="Spawn height of the wheel axle (>= wheel radius) [m]",
+                default_value="0.002",
+                description="Spawn height of base_footprint (ground below the axle) [m]",
             ),
             ExecuteProcess(
                 cmd=["gz", "sim", "-r", "-s", "-v", "2", world],
@@ -100,6 +100,22 @@ def generate_launch_description() -> LaunchDescription:
                     "-P",
                     initial_pitch,
                 ],
+                output="screen",
+            ),
+            # REP-105: earth -> map (identity, no geographic reference in sim),
+            # map -> odom from ground truth; odom -> base_footprint ->
+            # base_link come from the controller's state estimator.
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                arguments=["--frame-id", "earth", "--child-frame-id", "map"],
+                parameters=[{"use_sim_time": True}],
+                output="screen",
+            ),
+            Node(
+                package="balancio_description",
+                executable="ground_truth_localization",
+                parameters=[{"use_sim_time": True}],
                 output="screen",
             ),
             Node(

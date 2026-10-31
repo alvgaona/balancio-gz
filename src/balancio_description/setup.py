@@ -23,7 +23,10 @@ setup(
     install_requires=["setuptools"],
     zip_safe=True,
     entry_points={
-        "console_scripts": ["motor_model = balancio_description.motor_model:main"],
+        "console_scripts": [
+            "motor_model = balancio_description.motor_model:main",
+            "ground_truth_localization = balancio_description.ground_truth_localization:main",
+        ],
     },
     maintainer="Alvaro J. Gaona",
     maintainer_email="alvgaona@gmail.com",

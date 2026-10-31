@@ -54,6 +54,14 @@ def yaw_pitch_to_quat(yaw: float, pitch: float = 0.0, roll: float = 0.0):
     )
 
 
+def rotate(q, v):
+    """Rotate vector v by quaternion q = (x, y, z, w)."""
+    qx, qy, qz, qw = q
+    u = np.array([qx, qy, qz])
+    v = np.asarray(v, dtype=float)
+    return 2 * u.dot(v) * u + (qw * qw - u.dot(u)) * v + 2 * qw * np.cross(u, v)
+
+
 class BalancioMpcNode(Node):
     def __init__(self) -> None:
         super().__init__("balancio_mpc")
@@ -83,7 +91,7 @@ class BalancioMpcNode(Node):
         self.declare_parameter("left_wheel_joint", "left_wheel_joint")
         self.declare_parameter("right_wheel_joint", "right_wheel_joint")
         self.declare_parameter("odom_frame", "odom")
-        self.declare_parameter("base_frame", "base_link")
+        self.declare_parameter("base_footprint_frame", "base_footprint")
         self.declare_parameter("publish_tf", True)
 
         gp = self.get_parameter
@@ -128,7 +136,7 @@ class BalancioMpcNode(Node):
         self.max_pos_lead = float(gp("max_position_lead").value)
         self.max_head_lead = float(gp("max_heading_lead").value)
         self.odom_frame = gp("odom_frame").value
-        self.base_frame = gp("base_frame").value
+        self.footprint_frame = gp("base_footprint_frame").value
 
         self.u_prev = np.zeros(2)
         self.v_cmd = 0.0
@@ -208,6 +216,7 @@ class BalancioMpcNode(Node):
         x = self.est.state()
         now = self.get_clock().now()
         dt = self.cfg.dt
+        self.publish_state(x, now)
 
         if (
             self.last_cmd_time is None
@@ -267,28 +276,28 @@ class BalancioMpcNode(Node):
         self.u_prev = sol.u
         self.publish_torque(sol.u)
 
-        self.publish_debug(x, xref[:, 0], sol, solve_ms, now)
+        self.publish_mpc(xref[:, 0], sol, solve_ms, now)
 
     # ---------------------------------------------------------------- output
-    def publish_debug(self, x, xref0, sol, solve_ms, now) -> None:
+    def publish_state(self, x, now) -> None:
+        """Estimated state, odometry and TF: published every step."""
         stamp = now.to_msg()
         self.pub_state.publish(Float64MultiArray(data=[float(v) for v in x]))
-        self.pub_ref.publish(Float64MultiArray(data=[float(v) for v in xref0]))
-        self.pub_input.publish(
-            Float64MultiArray(
-                data=[float(sol.u[0]), float(sol.u[1]), solve_ms, float(sol.iterations)]
-            )
-        )
 
+        # Pose of base_footprint in odom (REP-105/120). base_link sits on the
+        # axle, r above base_footprint (static joint in the URDF), and pitches
+        # about the axle. With the body's rotation R, keeping the axle at
+        # (X, Y, r) puts base_footprint at (X, Y, r) - R (0, 0, r).
         X, Y, psi = self.est.X, self.est.Y, float(x[2])
+        q = yaw_pitch_to_quat(psi, float(x[1]), self.est.roll)
+        up = rotate(q, (0.0, 0.0, self.params.r))
         odom = Odometry()
         odom.header.stamp = stamp
         odom.header.frame_id = self.odom_frame
-        odom.child_frame_id = self.base_frame
-        odom.pose.pose.position.x = X
-        odom.pose.pose.position.y = Y
-        odom.pose.pose.position.z = self.params.r
-        q = yaw_pitch_to_quat(psi, float(x[1]), self.est.roll)
+        odom.child_frame_id = self.footprint_frame
+        odom.pose.pose.position.x = X - up[0]
+        odom.pose.pose.position.y = Y - up[1]
+        odom.pose.pose.position.z = self.params.r - up[2]
         (
             odom.pose.pose.orientation.x,
             odom.pose.pose.orientation.y,
@@ -303,17 +312,28 @@ class BalancioMpcNode(Node):
         if self.tf is not None:
             t = TransformStamped()
             t.header = odom.header
-            t.child_frame_id = self.base_frame
-            t.transform.translation.x = X
-            t.transform.translation.y = Y
-            t.transform.translation.z = self.params.r
+            t.child_frame_id = self.footprint_frame
+            t.transform.translation.x = odom.pose.pose.position.x
+            t.transform.translation.y = odom.pose.pose.position.y
+            t.transform.translation.z = odom.pose.pose.position.z
             t.transform.rotation = odom.pose.pose.orientation
             self.tf.sendTransform(t)
 
+    def publish_mpc(self, xref0, sol, solve_ms, now) -> None:
+        """Reference, inputs and predicted path: published after each solve."""
+        stamp = now.to_msg()
+        self.pub_ref.publish(Float64MultiArray(data=[float(v) for v in xref0]))
+        self.pub_input.publish(
+            Float64MultiArray(
+                data=[float(sol.u[0]), float(sol.u[1]), solve_ms, float(sol.iterations)]
+            )
+        )
+
         # Predicted path, projected on the plane from the current pose.
         path = Path()
-        path.header = odom.header
-        px, py = X, Y
+        path.header.stamp = stamp
+        path.header.frame_id = self.odom_frame
+        px, py = self.est.X, self.est.Y
         xs = sol.x_pred
         for i in range(xs.shape[1]):
             if i > 0:
