@@ -18,7 +18,7 @@ ros-jazzy-teleop-twist-keyboard = "*"
 pytest = ">=8,<9"
 
 [tasks]
-test = "pytest src/balancio_control/test -q"
+test = "pytest src/balancio_control/test src/balancio_description/test -q"
 sim = "ros2 launch balancio_bringup balancio.launch.py"
 gui = "gz sim -g"
 

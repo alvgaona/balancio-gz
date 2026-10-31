@@ -6,12 +6,12 @@ Subscribes
   /cmd_vel                 geometry_msgs/Twist   (linear.x [m/s], angular.z [rad/s])
 
 Publishes
-  /balancio/left_wheel/torque, /balancio/right_wheel/torque   std_msgs/Float64 [N m]
+  /balancio/left_wheel/duty, /balancio/right_wheel/duty   std_msgs/Float64 [-1, 1]
   /balancio/odom             nav_msgs/Odometry (wheel/IMU dead reckoning)
   /balancio/mpc/predicted_path nav_msgs/Path
   /balancio/mpc/state        std_msgs/Float64MultiArray  [x, th, psi, dx, dth, dpsi]
   /balancio/mpc/reference    std_msgs/Float64MultiArray  (same layout)
-  /balancio/mpc/input        std_msgs/Float64MultiArray  [tau_L, tau_R, solve_ms, iters]
+  /balancio/mpc/input        std_msgs/Float64MultiArray  [duty_L, duty_R, solve_ms, iters]
 
 The twist command is turned into a reference over the horizon (as in twsbr):
 x_ref and psi_ref are integrated from (v, w), with dx_ref = v, dpsi_ref = w,
@@ -26,7 +26,6 @@ import time
 
 import numpy as np
 import rclpy
-import yaml
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped, TransformStamped, Twist
 from nav_msgs.msg import Odometry, Path
@@ -69,9 +68,8 @@ class BalancioMpcNode(Node):
         self.declare_parameter("q", d.q)
         self.declare_parameter("r", d.r)
         self.declare_parameter("r_rate", d.r_rate)
-        self.declare_parameter("max_torque", -1.0)  # <= 0: use model_file value
-        self.declare_parameter("motor_no_load_speed", -1.0)  # < 0: use model_file value
-        self.declare_parameter("max_torque_rate", d.max_torque_rate)
+        self.declare_parameter("max_duty", d.max_duty)
+        self.declare_parameter("max_duty_rate", d.max_duty_rate)
         self.declare_parameter("max_theta", d.max_theta)
         self.declare_parameter("solver", d.solver)
         self.declare_parameter("fall_angle", 1.0)
@@ -89,14 +87,6 @@ class BalancioMpcNode(Node):
         gp = self.get_parameter
         model_file = gp("model_file").value
         self.params = TwsbrParams.from_yaml(model_file)
-        with open(model_file) as f:
-            model_yaml = yaml.safe_load(f)
-        max_torque = float(gp("max_torque").value)
-        if max_torque <= 0.0:
-            max_torque = float(model_yaml.get("max_torque", d.max_torque))
-        no_load_speed = float(gp("motor_no_load_speed").value)
-        if no_load_speed < 0.0:
-            no_load_speed = float(model_yaml.get("motor_no_load_speed", 0.0))
 
         self.cfg = NmpcConfig(
             dt=float(gp("dt").value),
@@ -104,9 +94,8 @@ class BalancioMpcNode(Node):
             q=list(gp("q").value),
             r=list(gp("r").value),
             r_rate=list(gp("r_rate").value),
-            max_torque=max_torque,
-            motor_no_load_speed=no_load_speed,
-            max_torque_rate=float(gp("max_torque_rate").value),
+            max_duty=float(gp("max_duty").value),
+            max_duty_rate=float(gp("max_duty_rate").value),
             max_theta=float(gp("max_theta").value),
             solver=str(gp("solver").value),
         )
@@ -114,7 +103,8 @@ class BalancioMpcNode(Node):
         self.mpc = Nmpc(self.params, self.cfg)
         self.get_logger().info(
             f"NMPC ready ({self.cfg.solver}, N={self.cfg.horizon}, dt={self.cfg.dt}s, "
-            f"|tau|<={self.cfg.max_torque} Nm, no-load {self.cfg.motor_no_load_speed} rad/s) "
+            f"|duty|<={self.cfg.max_duty}, stall {self.params.max_torque} Nm, "
+            f"no-load {self.params.motor_no_load_speed} rad/s) "
             f"built in {time.perf_counter() - t0:.2f}s"
         )
 
@@ -150,11 +140,9 @@ class BalancioMpcNode(Node):
         )
         self.create_subscription(Twist, "/cmd_vel", self.on_cmd_vel, 10)
 
-        self.pub_left = self.create_publisher(
-            Float64, "/balancio/left_wheel/torque", 10
-        )
+        self.pub_left = self.create_publisher(Float64, "/balancio/left_wheel/duty", 10)
         self.pub_right = self.create_publisher(
-            Float64, "/balancio/right_wheel/torque", 10
+            Float64, "/balancio/right_wheel/duty", 10
         )
         self.pub_odom = self.create_publisher(Odometry, "/balancio/odom", 10)
         self.pub_pred = self.create_publisher(Path, "/balancio/mpc/predicted_path", 10)
@@ -198,7 +186,7 @@ class BalancioMpcNode(Node):
         self.last_cmd_time = self.get_clock().now()
 
     # ---------------------------------------------------------------- control
-    def publish_torque(self, u: np.ndarray) -> None:
+    def publish_duty(self, u: np.ndarray) -> None:
         self.pub_left.publish(Float64(data=float(u[0])))
         self.pub_right.publish(Float64(data=float(u[1])))
 
@@ -221,13 +209,13 @@ class BalancioMpcNode(Node):
         if abs(x[1]) > self.fall_angle:
             if not self.fallen:
                 self.get_logger().warn(
-                    f"Robot fell (pitch {math.degrees(x[1]):.1f} deg). Torques disabled."
+                    f"Robot fell (pitch {math.degrees(x[1]):.1f} deg). Motors off."
                 )
             self.fallen = True
             self.u_prev[:] = 0.0
             self.mpc.reset()
             self.x_ref, self.psi_ref = float(x[0]), float(x[2])
-            self.publish_torque(self.u_prev)
+            self.publish_duty(self.u_prev)
             return
         if self.fallen and abs(x[1]) < 0.2:
             self.get_logger().info("Robot upright again, NMPC re-enabled.")
@@ -265,7 +253,7 @@ class BalancioMpcNode(Node):
                 throttle_duration_sec=1.0,
             )
         self.u_prev = sol.u
-        self.publish_torque(sol.u)
+        self.publish_duty(sol.u)
 
         self.publish_debug(x, xref[:, 0], sol, solve_ms, now)
 
@@ -350,7 +338,7 @@ def main(args=None) -> None:
         pass
     finally:
         if rclpy.ok():
-            node.publish_torque(np.zeros(2))
+            node.publish_duty(np.zeros(2))
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

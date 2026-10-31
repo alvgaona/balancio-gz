@@ -23,14 +23,14 @@
   gz_type_name: gz.msgs.Odometry
   direction: GZ_TO_ROS
 
-- ros_topic_name: /balancio/left_wheel/effort
-  gz_topic_name: /model/balancio/joint/left_wheel_joint/cmd_force
+- ros_topic_name: /balancio/left_wheel/duty
+  gz_topic_name: /balancio/left_wheel/duty
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
 
-- ros_topic_name: /balancio/right_wheel/effort
-  gz_topic_name: /model/balancio/joint/right_wheel_joint/cmd_force
+- ros_topic_name: /balancio/right_wheel/duty
+  gz_topic_name: /balancio/right_wheel/duty
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ

@@ -20,11 +20,8 @@ setup(
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    entry_points={
-        "console_scripts": ["motor_model = balancio_description.motor_model:main"],
-    },
     maintainer="Alvaro J. Gaona",
     maintainer_email="alvgaona@gmail.com",
-    description="Balancio robot description: URDF, meshes, parameters and motor model",
+    description="Balancio robot description: URDF, meshes, parameters and Gazebo motor plugin",
     license="MIT",
 )

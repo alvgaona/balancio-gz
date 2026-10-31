@@ -5,8 +5,16 @@ Direct port of alvgaona/twsbr `matlab/twsbr_dynamics.m`:
     M(q) q_ddot + C(q, q_dot) q_dot + D q_dot + G(q) = B u
 
     q = [x, theta, psi]      forward distance, pitch, yaw
-    u = [tau_L, tau_R]       wheel torques
+    u = [duty_L, duty_R]     motor PWM duty in [-1, 1]
     state = [x, theta, psi, dx, dtheta, dpsi]
+
+Added to twsbr: the wheels are driven by DC gear motors from a fixed battery
+voltage, so the wheel torque is
+
+    tau = max_torque * (duty - w / motor_no_load_speed)
+
+with w the wheel speed relative to the body, and the motor rotor inertia
+(reflected to the wheel, motor_inertia) spins with w.
 """
 
 from __future__ import annotations
@@ -33,6 +41,9 @@ class TwsbrParams:
     I2: float
     I3: float
     calpha: float
+    max_torque: float  # stall torque at full duty [N m]
+    motor_no_load_speed: float  # [rad/s]
+    motor_inertia: float  # rotor inertia at the wheel [kg m^2]
     g: float = 9.81
 
     @classmethod
@@ -43,8 +54,15 @@ class TwsbrParams:
         return cls(**{k: float(v) for k, v in data.items() if k in names})
 
 
+def motor_torques(state, u, p: TwsbrParams):
+    """Wheel torques [tau_L, tau_R] for duty u (no clipping)."""
+    w_l, w_r = wheel_speeds(state, p)
+    k = p.max_torque / p.motor_no_load_speed
+    return p.max_torque * u[0] - k * w_l, p.max_torque * u[1] - k * w_r
+
+
 def continuous_dynamics(state: ca.SX, u: ca.SX, p: TwsbrParams) -> ca.SX:
-    """State derivative, built with CasADi symbols (works with SX, MX or DM)."""
+    """State derivative for duty u, with CasADi symbols (works with SX, MX or DM)."""
     theta = state[1]
     dx = state[3]
     dtheta = state[4]
@@ -54,11 +72,19 @@ def continuous_dynamics(state: ca.SX, u: ca.SX, p: TwsbrParams) -> ca.SX:
     c = ca.cos(theta)
     k = p.I3 - p.I1 - p.mb * p.l**2
 
-    # Mass matrix
-    a11 = p.mb + 2 * p.mw + 2 * p.J / p.r**2
-    a12 = p.mb * p.l * c
-    a22 = p.I2 + p.mb * p.l**2
-    a33 = p.I3 + 2 * p.K + p.mw * p.d**2 / 2 + p.J * p.d**2 / (2 * p.r**2) - k * s**2
+    # Mass matrix. The rotors add Jm (dx / r - dtheta)^2 + Jm (d dpsi / 2 r)^2
+    # to the kinetic energy (two motors, relative wheel speeds).
+    jm = p.motor_inertia
+    a11 = p.mb + 2 * p.mw + 2 * p.J / p.r**2 + 2 * jm / p.r**2
+    a12 = p.mb * p.l * c - 2 * jm / p.r
+    a22 = p.I2 + p.mb * p.l**2 + 2 * jm
+    a33 = (
+        p.I3
+        + 2 * p.K
+        + p.mw * p.d**2 / 2
+        + (p.J + jm) * p.d**2 / (2 * p.r**2)
+        - k * s**2
+    )
 
     # Coriolis matrix
     c12 = -p.mb * p.l * dtheta * s
@@ -74,8 +100,7 @@ def continuous_dynamics(state: ca.SX, u: ca.SX, p: TwsbrParams) -> ca.SX:
     d22 = 2 * p.calpha
     d33 = p.calpha * p.d**2 / (2 * p.r**2)
 
-    tau_l = u[0]
-    tau_r = u[1]
+    tau_l, tau_r = motor_torques(state, u, p)
 
     # Right-hand side: B u - C q_dot - D q_dot - G
     f1 = (tau_l + tau_r) / p.r - (c12 * dtheta + c13 * dpsi) - (d11 * dx + d12 * dtheta)

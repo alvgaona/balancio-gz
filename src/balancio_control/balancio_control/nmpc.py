@@ -1,9 +1,12 @@
 """Nonlinear MPC for the two-wheeled self-balancing robot (CasADi + IPOPT).
 
 Python counterpart of the `nlmpc` setup in alvgaona/twsbr `matlab/twsbr_nmpc.m`:
-same states, inputs, stage cost (Q, R, input-rate weight) and constraints
-(torque, torque rate, pitch). Differences:
+same states, stage cost (Q, R, input-rate weight) and constraints (input,
+input rate, pitch). Differences:
 
+  * The inputs are the motor PWM duties, not torques: the model includes the
+    DC motors (back-EMF, rotor inertia), so |duty| <= 1 is the whole motor
+    limit, as on the real robot.
   * Direct multiple shooting with RK4 instead of a single Euler step.
   * Terminal cost from the discrete LQR of the model linearized upright.
   * A per-stage reference over the horizon (reference preview).
@@ -16,7 +19,7 @@ from dataclasses import dataclass, field
 import casadi as ca
 import numpy as np
 
-from balancio_control.model import NU, NX, TwsbrParams, make_rk4_function, wheel_speeds
+from balancio_control.model import NU, NX, TwsbrParams, make_rk4_function
 
 
 @dataclass
@@ -25,13 +28,10 @@ class NmpcConfig:
     horizon: int = 25
     # State weights: [x, theta, psi, dx, dtheta, dpsi]
     q: list[float] = field(default_factory=lambda: [40.0, 100.0, 10.0, 4.0, 0.5, 0.5])
-    r: list[float] = field(default_factory=lambda: [16.0, 16.0])
-    r_rate: list[float] = field(default_factory=lambda: [1.0, 1.0])
-    max_torque: float = 0.25  # stall torque per wheel [N m]
-    # DC motor back-EMF: available torque falls linearly to zero at the no-load
-    # speed, tau in [-stall (1 + w / w0), stall (1 - w / w0)]. <= 0 disables.
-    motor_no_load_speed: float = 0.0  # [rad/s]
-    max_torque_rate: float = 25.0  # [N m / s]
+    r: list[float] = field(default_factory=lambda: [0.1, 0.1])  # duty weights
+    r_rate: list[float] = field(default_factory=lambda: [0.006, 0.006])
+    max_duty: float = 1.0
+    max_duty_rate: float = 300.0  # [1/s]
     max_theta: float = 0.6  # [rad]
     max_iter: int = 100
     terminal_lqr: bool = True
@@ -62,7 +62,7 @@ def dlqr_terminal_cost(
 
 @dataclass
 class NmpcSolution:
-    u: np.ndarray  # first control move [tau_L, tau_R]
+    u: np.ndarray  # first control move [duty_L, duty_R]
     x_pred: np.ndarray  # (NX, N+1)
     u_pred: np.ndarray  # (NU, N)
     success: bool
@@ -74,7 +74,7 @@ class Nmpc:
     """Multiple-shooting NMPC.
 
     The previous input is carried as an extra state (z = [x; u_last]) so the
-    torque-rate constraint is local to each stage. This keeps the NLP in the
+    duty-rate constraint is local to each stage. This keeps the NLP in the
     stage-wise OCP form required by fatrop (and is harmless for IPOPT).
     Decision vector layout: [z_0, u_0, z_1, u_1, ..., z_N].
     """
@@ -99,7 +99,7 @@ class Nmpc:
         z0 = ca.SX.sym("z0", NZ)  # [x0; u_prev]
         xref = ca.SX.sym("xref", NX, N + 1)
 
-        du_max = c.max_torque_rate * c.dt
+        du_max = c.max_duty_rate * c.dt
         cost = 0
         g = [Z[0] - z0]
         lbg = [np.zeros(NZ)]
@@ -110,7 +110,7 @@ class Nmpc:
         ubw: list[np.ndarray] = []
         inf = np.inf
         z_lb = np.array([-inf, -c.max_theta, -inf, -inf, -inf, -inf, -inf, -inf])
-        u_lb = -c.max_torque * np.ones(NU)
+        u_lb = -c.max_duty * np.ones(NU)
         for k in range(N):
             x_k, ul_k = Z[k][:NX], Z[k][NX:]
             e = x_k - xref[:, k]
@@ -120,14 +120,6 @@ class Nmpc:
             lbg += [np.zeros(NZ), -du_max * np.ones(NU)]
             ubg += [np.zeros(NZ), du_max * np.ones(NU)]
             eq += [True] * NZ + [False] * NU
-            if c.motor_no_load_speed > 0:
-                # Back-EMF: -stall <= tau + stall * w / w0 <= stall, per wheel
-                w_l, w_r = wheel_speeds(x_k, params)
-                k_emf = c.max_torque / c.motor_no_load_speed
-                g += [U[k] + k_emf * ca.vertcat(w_l, w_r)]
-                lbg += [-c.max_torque * np.ones(NU)]
-                ubg += [c.max_torque * np.ones(NU)]
-                eq += [False] * NU
             w += [Z[k], U[k]]
             lbw += [z_lb, u_lb]
             ubw += [-z_lb, -u_lb]
@@ -246,7 +238,7 @@ class Nmpc:
         X = w[self._ix]
         U = w[self._iu]
         u0 = np.nan_to_num(U[:, 0])
-        u0 = np.clip(u0, -self.cfg.max_torque, self.cfg.max_torque)
+        u0 = np.clip(u0, -self.cfg.max_duty, self.cfg.max_duty)
         return NmpcSolution(
             u=u0,
             x_pred=X,

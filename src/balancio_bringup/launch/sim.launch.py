@@ -104,12 +104,6 @@ def generate_launch_description() -> LaunchDescription:
                 output="screen",
             ),
             Node(
-                package="balancio_description",
-                executable="motor_model",
-                parameters=[{"params_file": params_file, "use_sim_time": True}],
-                output="screen",
-            ),
-            Node(
                 package="ros_gz_bridge",
                 executable="parameter_bridge",
                 parameters=[{"config_file": bridge_config, "use_sim_time": True}],

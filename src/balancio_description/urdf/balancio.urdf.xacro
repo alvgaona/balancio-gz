@@ -5,8 +5,8 @@
   Frame conventions (match the twsbr dynamic model):
     base_link origin on the wheel axle, x forward, y left, z up.
     Positive pitch (about +y) leans the body forward.
-    Positive wheel torque (about +y) drives the robot forward; Gazebo applies
-    the reaction (-tau) on the body, as in the model's input matrix B.
+    Positive wheel torque (about +y) drives the robot forward; the reaction
+    (-tau) acts on the body, as in the model's input matrix B.
 -->
 <robot name="balancio" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -79,12 +79,6 @@
       <mu1>1.5</mu1>
       <mu2>1.5</mu2>
     </gazebo>
-
-    <gazebo>
-      <plugin filename="gz-sim-apply-joint-force-system" name="gz::sim::systems::ApplyJointForce">
-        <joint_name>${side}_wheel_joint</joint_name>
-      </plugin>
-    </gazebo>
   </xacro:macro>
 
   <xacro:wheel side="left" y_sign="1"/>
@@ -118,6 +112,12 @@
   </gazebo>
 
   <gazebo>
+    <!-- TT gear motors: PWM duty in, torque out, with rotor inertia and backlash
+         (balancio_description/gear_motor.py), every physics step -->
+    <plugin filename="gz-sim-python-system-loader-system" name="gz::sim::systems::PythonSystemLoader">
+      <module_name>balancio_description.gz_motor</module_name>
+      <params_file>$(arg params_file)</params_file>
+    </plugin>
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
       <topic>/balancio/joint_states</topic>
       <joint_name>left_wheel_joint</joint_name>

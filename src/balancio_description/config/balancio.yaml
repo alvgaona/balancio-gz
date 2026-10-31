@@ -50,7 +50,17 @@ collision_battery:    # 2x 18650 + tray, below/around the axle
   center: [0.0012, 0.0, -0.0046]
   size: [0.0745, 0.076, 0.0232]
 
-# Motors: TT gear motor 1:48 at ~6 V (2S Li-ion through the L298N).
+# Motors: TT gear motor 1:48 at ~6 V (2S Li-ion through the L298N), driven
+# by PWM duty in [-1, 1]: tau = max_torque * (duty - w / motor_no_load_speed),
+# w the wheel speed relative to the body.
 # Datasheet: stall 0.8 kg cm, no-load ~200 rpm at 6 V.
-max_torque: 0.078            # stall torque per wheel [N m]
-motor_no_load_speed: 20.9    # [rad/s]; torque falls linearly to 0 here
+max_torque: 0.078            # stall torque per wheel at full duty [N m]
+motor_no_load_speed: 20.9    # [rad/s] at full duty
+# Rotor inertia seen at the wheel: ~6e-8 kg m^2 (130-size motor) x 48^2.
+# Estimate; spin a wheel up with the motor to refine it.
+motor_inertia: 1.4e-4        # [kg m^2]
+
+# Gearbox (simulation only; the controller assumes a rigid gearbox).
+backlash: 0.0                # half of the total free play at the wheel [rad]
+gear_stiffness: 10.0         # gear mesh stiffness [N m/rad]
+gear_damping: 0.01           # gear mesh damping [N m s/rad]

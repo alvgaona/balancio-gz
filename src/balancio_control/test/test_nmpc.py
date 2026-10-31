@@ -4,12 +4,10 @@ import os
 
 import numpy as np
 import pytest
-import yaml
 from balancio_control.model import (
     TwsbrParams,
     make_dynamics_function,
     make_rk4_function,
-    wheel_speeds,
 )
 from balancio_control.nmpc import Nmpc, NmpcConfig
 
@@ -24,19 +22,6 @@ def params() -> TwsbrParams:
     return TwsbrParams.from_yaml(PARAMS)
 
 
-@pytest.fixture(scope="module")
-def motor() -> tuple[float, float]:
-    with open(PARAMS) as f:
-        p = yaml.safe_load(f)
-    return float(p["max_torque"]), float(p["motor_no_load_speed"])
-
-
-def motor_limit(u, x, p, stall, w0):
-    """Same voltage-limited DC motor as the Gazebo motor_model node."""
-    w = np.array([float(v) for v in wheel_speeds(x, p)])
-    return np.clip(u, -stall * (1 + w / w0), stall * (1 - w / w0))
-
-
 def test_upright_is_equilibrium_and_unstable(params):
     f = make_dynamics_function(params)
     assert np.allclose(np.asarray(f(np.zeros(6), np.zeros(2))).ravel(), 0.0)
@@ -45,22 +30,30 @@ def test_upright_is_equilibrium_and_unstable(params):
     assert dx[4] > 0.0
 
 
-def test_torque_signs(params):
+def test_duty_signs(params):
     f = make_dynamics_function(params)
-    tau = 0.05
-    fwd = np.asarray(f(np.zeros(6), np.array([tau, tau]))).ravel()
+    duty = 0.5
+    fwd = np.asarray(f(np.zeros(6), np.array([duty, duty]))).ravel()
     assert fwd[3] > 0.0 and fwd[4] < 0.0  # wheels forward, body pitched back
-    turn = np.asarray(f(np.zeros(6), np.array([-tau, tau]))).ravel()
+    turn = np.asarray(f(np.zeros(6), np.array([-duty, duty]))).ravel()
     assert turn[5] > 0.0  # right wheel forward -> yaw left (CCW)
 
 
-@pytest.mark.parametrize("solver", ["fatrop", "ipopt"])
-def test_closed_loop_recovery_and_tracking(params, motor, solver):
-    stall, w0 = motor
-    cfg = NmpcConfig(solver=solver, max_torque=stall, motor_no_load_speed=w0)
-    mpc = Nmpc(params, cfg)
-    # Plant with +-10 % parameter mismatch, as in twsbr_nmpc.m
-    plant_p = TwsbrParams(
+def test_back_emf_limits_speed(params):
+    """Full duty, held upright: back-EMF and axle friction balance the motor."""
+    F = make_rk4_function(params, 0.001)
+    x = np.zeros(6)
+    for _ in range(3000):
+        x = np.asarray(F(x, np.ones(2))).ravel()
+        x[1] = x[4] = 0.0  # hold the body upright
+    w = x[3] / params.r
+    k = params.max_torque / params.motor_no_load_speed
+    assert w == pytest.approx(params.max_torque / (k + params.calpha), rel=0.01)
+
+
+def mismatched(params: TwsbrParams) -> TwsbrParams:
+    """+-10 % on every parameter, as in twsbr_nmpc.m"""
+    return TwsbrParams(
         **{
             k: v * (1.1 if i % 2 else 0.9)
             for i, (k, v) in enumerate(vars(params).items())
@@ -68,7 +61,13 @@ def test_closed_loop_recovery_and_tracking(params, motor, solver):
         },
         g=params.g,
     )
-    plant = make_rk4_function(plant_p, cfg.dt, substeps=20)
+
+
+@pytest.mark.parametrize("solver", ["fatrop", "ipopt"])
+def test_closed_loop_recovery_and_tracking(params, solver):
+    cfg = NmpcConfig(solver=solver)
+    mpc = Nmpc(params, cfg)
+    plant = make_rk4_function(mismatched(params), cfg.dt, substeps=20)
 
     x = np.array([0.0, 0.3, 0.0, 0.0, 0.0, 0.0])
     u = np.zeros(2)
@@ -82,11 +81,9 @@ def test_closed_loop_recovery_and_tracking(params, motor, solver):
         ref[0], ref[2], ref[3], ref[5] = x_ref + v * k, psi_ref + w * k, v, w
         sol = mpc.solve(x, ref, u)
         assert sol.success, sol.status
-        assert np.all(np.abs(sol.u) <= cfg.max_torque + 1e-9)
-        # The plan respects the back-EMF limit (small solver tolerance).
-        assert np.allclose(motor_limit(sol.u, x, params, stall, w0), sol.u, atol=1e-4)
+        assert np.all(np.abs(sol.u) <= cfg.max_duty + 1e-9)
         u = sol.u
-        x = np.asarray(plant(x, motor_limit(u, x, plant_p, stall, w0))).ravel()
+        x = np.asarray(plant(x, u)).ravel()
         x_ref += v * cfg.dt
         psi_ref += w * cfg.dt
         assert abs(x[1]) < cfg.max_theta + 0.05

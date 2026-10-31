@@ -3,14 +3,11 @@
 <package format="3">
   <name>balancio_description</name>
   <version>0.1.0</version>
-  <description>Balancio robot description: URDF, meshes, parameters and motor model</description>
+  <description>Balancio robot description: URDF, meshes, parameters and Gazebo motor plugin</description>
   <maintainer email="alvgaona@gmail.com">Alvaro</maintainer>
   <license>MIT</license>
 
   <exec_depend>xacro</exec_depend>
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
 
   <export>
