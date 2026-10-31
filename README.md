@@ -28,10 +28,17 @@ pixi run ros2 launch balancio_control balancio_mpc.launch.py
 ```
 
 To follow a path, add `trajectory:=` with `line`, `circle`, `sine` or `figure8`.
-Add `rviz:=true` to see the path in RViz.
 
 ```text
-pixi run ros2 launch balancio_control balancio_mpc.launch.py trajectory:=figure8 rviz:=true
+pixi run ros2 launch balancio_control balancio_mpc.launch.py trajectory:=figure8
+```
+
+## Visualize
+
+In another shell, stream the robot, its path and its sensors to [Rerun] with [Rewire]:
+
+```text
+pixi run viz
 ```
 
 ## Drive it yourself
@@ -78,5 +85,7 @@ pixi run -e style hooks
 [twsbr]: https://github.com/alvgaona/twsbr
 [balancio-sim]: https://github.com/alvgaona/balancio-sim
 [Blender]: https://www.blender.org/download/
+[Rerun]: https://rerun.io
+[Rewire]: https://rewire.run
 [Conventional Commits]: https://www.conventionalcommits.org
 [pixi-installation]: https://pixi.sh/latest/#installation

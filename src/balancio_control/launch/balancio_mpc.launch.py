@@ -1,4 +1,4 @@
-"""Gazebo + Balancio + NMPC (+ optional path following and RViz)."""
+"""Gazebo + Balancio + NMPC (+ optional path following)."""
 
 import os
 
@@ -21,7 +21,6 @@ def generate_launch_description() -> LaunchDescription:
     return LaunchDescription(
         [
             DeclareLaunchArgument("headless", default_value="false"),
-            DeclareLaunchArgument("rviz", default_value="false"),
             DeclareLaunchArgument("initial_pitch", default_value="0.1"),
             DeclareLaunchArgument(
                 "trajectory",
@@ -56,13 +55,6 @@ def generate_launch_description() -> LaunchDescription:
                 parameters=[mpc_config, {"trajectory": trajectory}],
                 output="screen",
                 condition=IfCondition(NotEqualsSubstitution(trajectory, "none")),
-            ),
-            Node(
-                package="rviz2",
-                executable="rviz2",
-                arguments=["-d", os.path.join(desc, "config", "balancio.rviz")],
-                parameters=[{"use_sim_time": True}],
-                condition=IfCondition(LaunchConfiguration("rviz")),
             ),
         ]
     )

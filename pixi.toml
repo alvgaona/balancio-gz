@@ -3,14 +3,21 @@ name = "balancio-gz"
 version = "0.1.0"
 description = "A self-balancing robot for Gazebo"
 authors = ["Alvaro <alvgaona@gmail.com>"]
-channels = ["robostack-jazzy", "conda-forge"]
+channels = ["robostack-jazzy", "conda-forge", "https://prefix.dev/rewire"]
 platforms = ["linux-64", "osx-arm64"]
 preview = ["pixi-build"]
 
 [dependencies]
 ros-jazzy-balancio-description = { path = "src/balancio_description" }
 ros-jazzy-balancio-control = { path = "src/balancio_control" }
-ros-jazzy-rviz2 = "*"
+rewire = "*"
+ros-jazzy-ros2cli = "*"
+ros-jazzy-ros2launch = "*"
+ros-jazzy-ros2run = "*"
+ros-jazzy-ros2topic = "*"
+ros-jazzy-ros2node = "*"
+ros-jazzy-ros2service = "*"
+ros-jazzy-ros2param = "*"
 ros-jazzy-teleop-twist-keyboard = "*"
 pytest = ">=8,<9"
 
@@ -18,6 +25,8 @@ pytest = ">=8,<9"
 test = "pytest src/balancio_control/test -q"
 sim = "ros2 launch balancio_control balancio_mpc.launch.py"
 gui = "gz sim -g"
+viz = "rewire record --config $PIXI_PROJECT_ROOT/config/rewire.json5"
+cad-convert = "bash tools/blender.sh -b --factory-startup --python-exit-code 1 --python tools/blender_cad_to_meshes.py --"
 
 [feature.style.dependencies]
 ruff = "*"

@@ -1,0 +1,18 @@
+{
+  // Application ID shown in the Rerun viewer title bar.
+  app_id: "balancio",
+
+  // Per-topic diagnostics (hz, bytes/sec, drops, latency).
+  diagnostics: true,
+
+  topics: {
+    include: ["/**"],
+    exclude: ["/rosout", "/parameter_events", "/clock"],
+  },
+
+  // Gazebo publishes these at the 1 kHz physics rate; 100 Hz is plenty to plot.
+  topic_overrides: [
+    { name: "/balancio/joint_states", max_hz: 100 },
+    { name: "/balancio/*_wheel/effort", max_hz: 100 },
+  ],
+}
