@@ -16,7 +16,7 @@ setup(
         ("share/" + package_name + "/worlds", glob("worlds/*")),
         (
             "share/" + package_name + "/meshes",
-            glob("meshes/*.obj") + glob("meshes/*.mtl"),
+            glob("meshes/*.glb"),
         ),
         ("share/" + package_name + "/launch", glob("launch/*.py")),
     ],

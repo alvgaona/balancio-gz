@@ -1,4 +1,4 @@
-"""Convert a Fusion 360 assembly export (USDZ) into Balancio visual meshes (OBJ).
+"""Convert a Fusion 360 assembly export (USDZ) into Balancio visual meshes (glTF).
 
 Runs inside Blender (headless):
 
@@ -16,7 +16,7 @@ This script:
     belong to a wheel,
   * puts the wheel axle (midpoint of both wheel centres) at the origin of the
     body, and each wheel at its own centre,
-  * exports meshes/{body,wheel_left,wheel_right}.obj (+ .mtl colours),
+  * exports meshes/{body,wheel_left,wheel_right}.glb (Z up, X forward),
   * optionally saves a .blend (open it to tweak materials or add textures, then
     re-export with --from-blend),
   * prints the measured wheel radius / separation for config/balancio.yaml.
@@ -116,7 +116,7 @@ def shift(obj, offset: Vector) -> None:
 
 def tame_materials(max_metallic: float) -> None:
     # Fully metallic surfaces render nearly black without an environment map
-    # (Gazebo / RViz), so cap metallic and keep some roughness.
+    # (Gazebo / Rerun), so cap metallic and keep some roughness.
     for mat in bpy.data.materials:
         if not mat.use_nodes:
             continue
@@ -199,34 +199,12 @@ def report(parts: dict) -> None:
     print(f"                            max {tuple(round(v, 4) for v in bhi)}")
 
 
-def fix_mtl(path: str) -> None:
-    """Blender writes Ka 1 1 1 (white ambient), which washes out every colour in
-    Gazebo; use the diffuse colour as ambient instead."""
-    if not os.path.exists(path):
-        return
-    with open(path) as f:
-        text = f.read()
-    blocks, cur = [], []
-    for line in text.splitlines():
-        if line.startswith("newmtl") and cur:
-            blocks.append(cur)
-            cur = []
-        cur.append(line)
-    blocks.append(cur)
-    lines = []
-    for block in blocks:
-        kd = next((ln for ln in block if ln.startswith("Kd ")), None)
-        for ln in block:
-            lines.append("Ka " + kd[3:] if ln.startswith("Ka ") and kd else ln)
-    with open(path, "w") as f:
-        f.write("\n".join(lines) + "\n")
-
-
 def export(parts: dict, out: str) -> None:
-    """OBJ + MTL, written in the ROS frame (Z up, X forward), no axis conversion.
+    """glTF binaries (.glb) in the ROS frame: Z up, X forward.
 
-    glTF is avoided on purpose: Gazebo converts glTF from Y-up to Z-up but RViz
-    does not, so no single glTF file looks right in both. Both load OBJ as-is.
+    Gazebo and Rerun both take glTF vertex data as-is (only applying the
+    file's node transforms), so the meshes are written Z-up rather than the
+    spec's Y-up; a Y-up file would lie on its side in both.
     """
     os.makedirs(out, exist_ok=True)
     for old in os.listdir(out):
@@ -236,26 +214,18 @@ def export(parts: dict, out: str) -> None:
         bpy.ops.object.select_all(action="DESELECT")
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        path = os.path.join(out, f"{name}.obj")
-        bpy.ops.wm.obj_export(
+        path = os.path.join(out, f"{name}.glb")
+        bpy.ops.export_scene.gltf(
             filepath=path,
-            export_selected_objects=True,
-            forward_axis="Y",  # identity mapping: keep Blender/ROS axes
-            up_axis="Z",
-            apply_modifiers=True,
+            export_format="GLB",
+            use_selection=True,
+            export_yup=False,
+            export_apply=True,
+            export_texcoords=True,
             export_normals=True,
-            export_uv=False,
-            export_materials=True,
-            export_pbr_extensions=False,
-            path_mode="STRIP",
+            export_materials="EXPORT",
         )
-        fix_mtl(os.path.join(out, f"{name}.mtl"))
-        size = sum(
-            os.path.getsize(os.path.join(out, f"{name}.{ext}"))
-            for ext in ("obj", "mtl")
-            if os.path.exists(os.path.join(out, f"{name}.{ext}"))
-        )
-        print(f"wrote {path} (+ .mtl, {size / 1e6:.2f} MB)")
+        print(f"wrote {path} ({os.path.getsize(path) / 1e6:.2f} MB)")
 
 
 def main() -> None:

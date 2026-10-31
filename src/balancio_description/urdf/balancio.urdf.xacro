@@ -27,7 +27,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="${mesh_dir}/body.obj"/>
+        <mesh filename="${mesh_dir}/body.glb"/>
       </geometry>
     </visual>
     <!-- Collisions: boxes fitted to the CAD (main plate, low battery block) -->
@@ -63,7 +63,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_dir}/wheel_${side}.obj"/>
+          <mesh filename="${mesh_dir}/wheel_${side}.glb"/>
         </geometry>
       </visual>
       <!-- A sphere gives a single, clean rolling contact point. -->
