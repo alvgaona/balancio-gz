@@ -1,4 +1,8 @@
-"""NMPC controller, plus the path follower when a trajectory is given."""
+"""NMPC controller, plus the path follower when a trajectory is given.
+
+controller:=python runs balancio_control's CasADi NMPC, controller:=cpp the
+acados one from balancio_nmpc. Both read mpc.yaml and use the same topics.
+"""
 
 import os
 
@@ -6,7 +10,11 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, NotEqualsSubstitution
+from launch.substitutions import (
+    EqualsSubstitution,
+    LaunchConfiguration,
+    NotEqualsSubstitution,
+)
 from launch_ros.actions import Node
 
 
@@ -28,13 +36,27 @@ def generate_launch_description() -> LaunchDescription:
                 "params_file",
                 default_value=os.path.join(desc, "config", "balancio.yaml"),
             ),
-            Node(
-                package="balancio_control",
-                executable="mpc_node",
-                name="balancio_mpc",
-                parameters=[mpc_config, {"model_file": model_file}],
-                output="screen",
+            DeclareLaunchArgument(
+                "controller", default_value="python", description="python | cpp"
             ),
+            *[
+                Node(
+                    package=package,
+                    executable="mpc_node",
+                    name="balancio_mpc",
+                    parameters=[mpc_config, {"model_file": model_file}],
+                    output="screen",
+                    condition=IfCondition(
+                        EqualsSubstitution(
+                            LaunchConfiguration("controller"), controller
+                        )
+                    ),
+                )
+                for controller, package in [
+                    ("python", "balancio_control"),
+                    ("cpp", "balancio_nmpc"),
+                ]
+            ],
             Node(
                 package="balancio_control",
                 executable="path_follower",

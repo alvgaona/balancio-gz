@@ -39,7 +39,10 @@ def generate_launch_description() -> LaunchDescription:
                 default_value=os.path.join(desc, "config", "balancio.yaml"),
             ),
             include("sim.launch.py", ["headless", "initial_pitch", "params_file"]),
-            include("control.launch.py", ["trajectory", "params_file"]),
+            DeclareLaunchArgument(
+                "controller", default_value="python", description="python | cpp"
+            ),
+            include("control.launch.py", ["trajectory", "params_file", "controller"]),
             include(
                 "viz.launch.py", [], condition=IfCondition(LaunchConfiguration("rviz"))
             ),

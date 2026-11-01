@@ -34,6 +34,10 @@ Add `rviz:=true` to see the path in RViz.
 pixi run ros2 launch balancio_bringup balancio.launch.py trajectory:=figure8 rviz:=true
 ```
 
+The controller is the Python one (CasADi) by default. Add `controller:=cpp` for the C++ one
+(`balancio_nmpc`, acados), the version meant for the ESP32. Both read
+`balancio_control/config/mpc.yaml` and use the same topics.
+
 Each part also has its own launch file in `balancio_bringup`, to run in separate shells:
 `sim.launch.py` (Gazebo and the robot), `control.launch.py` (the controller and path follower)
 and `viz.launch.py` (RViz).

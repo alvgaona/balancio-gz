@@ -9,6 +9,7 @@
 
   <exec_depend>balancio_description</exec_depend>
   <exec_depend>balancio_control</exec_depend>
+  <exec_depend>balancio_nmpc</exec_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>

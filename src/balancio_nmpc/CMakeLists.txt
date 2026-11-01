@@ -42,6 +42,20 @@ target_include_directories(balancio_model PUBLIC
 # Generated code: unused-parameter warnings are expected.
 target_compile_options(balancio_model PRIVATE -O2 -w)
 
+# The ROS 2 node, a drop-in for balancio_control's mpc_node.py.
+find_package(rclcpp REQUIRED)
+find_package(ament_index_cpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+add_executable(mpc_node src/mpc_node.cpp)
+target_link_libraries(mpc_node balancio_nmpc rclcpp::rclcpp ament_index_cpp::ament_index_cpp
+  ${std_msgs_TARGETS} ${sensor_msgs_TARGETS} ${geometry_msgs_TARGETS} ${nav_msgs_TARGETS}
+  tf2_ros::tf2_ros)
+install(TARGETS mpc_node RUNTIME DESTINATION lib/${PROJECT_NAME})
+
 install(DIRECTORY include/ DESTINATION include)
 install(FILES ${GEN_DIR}/balancio_model.c ${GEN_DIR}/balancio_model.h
   DESTINATION include/balancio_nmpc/generated)
