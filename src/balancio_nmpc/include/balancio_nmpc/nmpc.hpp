@@ -6,15 +6,21 @@
 //   dynamics     z+ = [RK4(x, u, dt); u]           (generated C, codegen.hpp)
 //   stage cost   e' Q e + u' R u + du' Rd du,  e = x - xref, du = u - u_prev
 //   final cost   e' Qf e, Qf from the discrete LQR at the upright equilibrium
+//
+// The solver itself needs only acados and the generated model C, so it
+// builds for the ESP32 too. The host-only parts (marked below) compute Qf
+// with CasADi; on the ESP32, Qf comes precomputed (NmpcConfig::qf).
 //   limits       |u| <= max_duty, |du| <= max_duty_rate dt, |theta| <= max_theta
 #pragma once
 
 #include <array>
 #include <vector>
 
-#include "balancio_nmpc/model.hpp"
+#include "balancio_nmpc/dims.hpp"
 
 namespace balancio_nmpc {
+
+struct Params;
 
 struct NmpcConfig {
   double dt = 0.02;
@@ -25,6 +31,9 @@ struct NmpcConfig {
   double max_duty = 1.0;
   double max_duty_rate = 300.0;  // [1/s]
   double max_theta = 0.6;        // [rad]
+  // Terminal weight Qf, NX x NX column-major. Empty: diag(q), or the LQR
+  // solution if terminal_lqr and the Nmpc is built from Params.
+  std::vector<double> qf;
   bool terminal_lqr = true;
   // false: full SQP to convergence. true: SQP-RTI, one QP per solve.
   bool rti = false;
@@ -42,10 +51,14 @@ struct NmpcSolution {
 };
 
 // Terminal cost: the discrete Riccati solution at the upright equilibrium.
+// Host only (CasADi).
 std::vector<double> dlqr_terminal_cost(const Params &p, const NmpcConfig &c);
 
 class Nmpc {
  public:
+  explicit Nmpc(const NmpcConfig &c);
+  // Host only (CasADi): fills c.qf with the LQR terminal cost if
+  // c.terminal_lqr and c.qf is empty.
   Nmpc(const Params &p, const NmpcConfig &c = {});
   ~Nmpc();
   Nmpc(const Nmpc &) = delete;

@@ -18,10 +18,9 @@
 #include <casadi/casadi.hpp>
 #include <string>
 
-namespace balancio_nmpc {
+#include "balancio_nmpc/dims.hpp"
 
-constexpr int NX = 6;
-constexpr int NU = 2;
+namespace balancio_nmpc {
 
 // Names follow balancio_description/config/balancio.yaml.
 struct Params {

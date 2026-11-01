@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "balancio_nmpc/model.hpp"
 #include "balancio_nmpc/nmpc.hpp"
 
 using namespace balancio_nmpc;

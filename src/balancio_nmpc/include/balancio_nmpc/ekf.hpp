@@ -17,7 +17,7 @@
 #include <optional>
 #include <vector>
 
-#include "balancio_nmpc/model.hpp"
+#include "balancio_nmpc/dims.hpp"
 
 namespace balancio_nmpc {
 

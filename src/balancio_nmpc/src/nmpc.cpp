@@ -4,7 +4,7 @@
 #include <cmath>
 #include <stdexcept>
 
-#include "balancio_nmpc/codegen.hpp"
+#include "balancio_nmpc/dims.hpp"
 
 extern "C" {
 #include "acados_c/external_function_interface.h"
@@ -46,31 +46,6 @@ void put(std::vector<double> &m, int rows, int i, int j, double v) { m[i + j * r
 
 }  // namespace
 
-std::vector<double> dlqr_terminal_cost(const Params &p, const NmpcConfig &c) {
-  using casadi::DM;
-  using casadi::SX;
-  const SX x = SX::sym("x", NX), u = SX::sym("u", NU);
-  const SX xn = rk4_step(x, u, c.dt, p);
-  casadi::Function lin("lin", {x, u}, {SX::jacobian(xn, x), SX::jacobian(xn, u)});
-  const auto AB = lin(std::vector<DM>{DM::zeros(NX), DM::zeros(NU)});
-  const DM A = AB[0], B = AB[1];
-  const DM Q = DM::diag(DM(std::vector<double>(c.q.begin(), c.q.end())));
-  const DM R = DM::diag(DM(std::vector<double>(c.r.begin(), c.r.end())));
-  // Same fixed-point iteration as balancio_control/nmpc.py.
-  DM P = Q;
-  for (int i = 0; i < 2000; ++i) {
-    const DM BtP = DM::mtimes(B.T(), P);
-    const DM K = DM::solve(R + DM::mtimes(BtP, B), DM::mtimes(BtP, A));
-    const DM Pn = Q + DM::mtimes({A.T(), P, A}) - DM::mtimes({A.T(), P, B, K});
-    const double diff = static_cast<double>(DM::norm_inf(Pn - P));
-    const double scale = std::max(1.0, static_cast<double>(DM::norm_inf(P)));
-    P = Pn;
-    if (diff < 1e-9 * scale) break;
-  }
-  P = 0.5 * (P + P.T());
-  return P.get_elements();  // column-major NX x NX
-}
-
 struct Nmpc::Impl {
   int N;
   ocp_nlp_plan_t *plan = nullptr;
@@ -84,7 +59,7 @@ struct Nmpc::Impl {
   bool warm = false;
 };
 
-Nmpc::Nmpc(const Params &p, const NmpcConfig &c) : impl_(new Impl), cfg_(c) {
+Nmpc::Nmpc(const NmpcConfig &c) : impl_(new Impl), cfg_(c) {
   Impl &m = *impl_;
   const int N = m.N = c.horizon;
 
@@ -176,8 +151,9 @@ Nmpc::Nmpc(const Params &p, const NmpcConfig &c) : impl_(new Impl), cfg_(c) {
   auto Vx_e = zeros(NX, NZ);
   for (int i = 0; i < NX; ++i) put(Vx_e, NX, i, i, 1.0);
   std::vector<double> W_e;
-  if (c.terminal_lqr) {
-    W_e = dlqr_terminal_cost(p, c);
+  if (!c.qf.empty()) {
+    if (c.qf.size() != NX * NX) throw std::invalid_argument("NmpcConfig::qf: expected NX x NX");
+    W_e = c.qf;
   } else {
     W_e = zeros(NX, NX);
     for (int i = 0; i < NX; ++i) put(W_e, NX, i, i, c.q[i]);

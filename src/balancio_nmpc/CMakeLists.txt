@@ -14,13 +14,18 @@ set(BALANCIO_PARAMS_FILE
   ${CMAKE_CURRENT_SOURCE_DIR}/../balancio_description/config/balancio.yaml
   CACHE FILEPATH "Physical parameters baked into the generated model")
 
-# The controller library: no ROS, so the ESP32 firmware can use it too.
-add_library(balancio_nmpc src/model.cpp src/codegen.cpp src/nmpc.cpp src/ekf.cpp)
-target_include_directories(balancio_nmpc PUBLIC
+# The run-time controller (NMPC + EKF): acados and the generated model C
+# only, no CasADi, no ROS. This is what the ESP32 firmware builds.
+add_library(balancio_nmpc_core src/nmpc.cpp src/ekf.cpp)
+target_include_directories(balancio_nmpc_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
+target_link_libraries(balancio_nmpc_core PRIVATE acados balancio_model)
+
+# Host side: the CasADi model, code generation and the LQR terminal cost.
+add_library(balancio_nmpc src/model.cpp src/codegen.cpp src/lqr.cpp)
 target_link_libraries(balancio_nmpc
-  PUBLIC casadi::casadi PRIVATE yaml-cpp::yaml-cpp acados balancio_model)
+  PUBLIC balancio_nmpc_core casadi::casadi PRIVATE yaml-cpp::yaml-cpp)
 
 # The model functions as plain C, regenerated when the model or the
 # parameters change. This is what acados (and later the ESP32) runs.
@@ -63,7 +68,7 @@ install(TARGETS mpc_node RUNTIME DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 install(FILES ${GEN_DIR}/balancio_model.c ${GEN_DIR}/balancio_model.h
   DESTINATION include/balancio_nmpc/generated)
-install(TARGETS balancio_nmpc balancio_model balancio_codegen EXPORT balancio_nmpcTargets
+install(TARGETS balancio_nmpc balancio_nmpc_core balancio_model balancio_codegen EXPORT balancio_nmpcTargets
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION lib/${PROJECT_NAME})
 ament_export_targets(balancio_nmpcTargets HAS_LIBRARY_TARGET)
 ament_export_dependencies(casadi)

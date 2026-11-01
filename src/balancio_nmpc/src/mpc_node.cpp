@@ -37,6 +37,7 @@
 // clang-format on
 
 #include "balancio_nmpc/ekf.hpp"
+#include "balancio_nmpc/model.hpp"
 #include "balancio_nmpc/nmpc.hpp"
 
 using namespace std::chrono_literals;

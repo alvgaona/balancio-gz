@@ -17,9 +17,6 @@
 
 namespace balancio_nmpc {
 
-constexpr int NZ = NX + NU;  // NMPC state: x and the previous duty
-constexpr int NP = 1;        // acados stage parameter: step length h
-
 // The functions above, as CasADi functions (named as in the generated C).
 std::vector<casadi::Function> make_codegen_functions(const Params &p);
 
