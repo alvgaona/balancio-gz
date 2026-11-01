@@ -42,6 +42,10 @@ target_include_directories(balancio_model PUBLIC
 # Generated code: unused-parameter warnings are expected.
 target_compile_options(balancio_model PRIVATE -O2 -w)
 
+# Solve-time benchmark: SQP vs RTI over horizons, in closed loop.
+add_executable(bench_nmpc tools/bench_nmpc.cpp)
+target_link_libraries(bench_nmpc balancio_nmpc)
+
 # The ROS 2 node, a drop-in for balancio_control's mpc_node.py.
 find_package(rclcpp REQUIRED)
 find_package(ament_index_cpp REQUIRED)
